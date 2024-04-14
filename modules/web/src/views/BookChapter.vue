@@ -111,6 +111,7 @@ import jump from "@/plugins/jump";
 import settings from "@/config/themeConfig";
 import API from "@api";
 import { useLoading } from "@/hooks/loading";
+import { useThrottleFn } from "@vueuse/shared";
 
 const content = ref();
 // loading spinner
@@ -299,8 +300,13 @@ const toChapterPos = (pos) => {
       chapterRef.value[0].scrollToReadedLength(pos);
   });
 };
+
+// 60秒保存一次进度
+const saveBookProgressThrottle = useThrottleFn(() => store.saveBookProgress(), 60000)
+
 const onReadedLengthChange = (index, pos) => {
   saveReadingBookProgressToBrowser(index, pos);
+  saveBookProgressThrottle();
 };
 
 // 文档标题
@@ -354,6 +360,7 @@ const toNextChapter = () => {
       type: "info",
     });
     getContent(index);
+    store.saveBookProgress();
   } else {
     ElMessage({
       message: "本章是最后一章",
@@ -370,6 +377,7 @@ const toPreChapter = () => {
       type: "info",
     });
     getContent(index);
+    store.saveBookProgress();
   } else {
     ElMessage({
       message: "本章是第一章",
@@ -392,6 +400,7 @@ const loadMore = () => {
   let index = chapterData.value.slice(-1)[0].index;
   if (catalog.value.length - 1 > index) {
     getContent(index + 1, false);
+    store.saveBookProgress(); // 保存的是上一章的进度，不是预载的本章进度
   }
 };
 // IntersectionObserver回调 底部加载
@@ -403,8 +412,10 @@ const onReachBottom = (entries) => {
   }
 };
 
+let canJump = true;
 // 监听方向键
 const handleKeyPress = (event) => {
+  if (!canJump) return;
   switch (event.key) {
     case "ArrowLeft":
       event.stopPropagation();
@@ -425,7 +436,11 @@ const handleKeyPress = (event) => {
           type: "warn",
         });
       } else {
-        jump(0 - document.documentElement.clientHeight + 100);
+        canJump = false;
+        jump(0 - document.documentElement.clientHeight + 100, {
+          duration: store.config.jumpDuration,
+          callback: () => (canJump = true),
+        });
       }
       break;
     case "ArrowDown":
@@ -441,11 +456,24 @@ const handleKeyPress = (event) => {
           type: "warn",
         });
       } else {
-        jump(document.documentElement.clientHeight - 100);
+        canJump = false;
+        jump(document.documentElement.clientHeight - 100, {
+          duration: store.config.jumpDuration,
+          callback: () => (canJump = true),
+        });
       }
       break;
   }
 };
+
+// 阻止默认滚动事件
+const ignoreKeyPress = (event) => {
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+};
+
 onMounted(() => {
   //获取书籍数据
   let bookUrl = sessionStorage.getItem("bookUrl");
@@ -484,6 +512,7 @@ onMounted(() => {
 
         getContent(chapterIndex, true, chapterPos);
         window.addEventListener("keyup", handleKeyPress);
+        window.addEventListener("keydown", ignoreKeyPress);
         // 兼容Safari < 14
         document.addEventListener("visibilitychange", onVisibilityChange);
         //监听底部加载
@@ -505,6 +534,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("keyup", handleKeyPress);
+  window.removeEventListener("keydown", ignoreKeyPress);
   window.removeEventListener("resize", onResize);
   // 兼容Safari < 14
   document.removeEventListener("visibilitychange", onVisibilityChange);

@@ -5,16 +5,14 @@ import android.content.pm.PackageManager
 import android.provider.Settings
 import androidx.annotation.Keep
 import io.legado.app.BuildConfig
-import io.legado.app.utils.channel
 import splitties.init.appCtx
 import java.text.SimpleDateFormat
 
+@Suppress("ConstPropertyName")
 @SuppressLint("SimpleDateFormat")
 object AppConst {
 
     const val APP_TAG = "Legado"
-
-    val isPlayChannel = appCtx.channel == "google"
 
     const val channelIdDownload = "channel_download"
     const val channelIdReadAloud = "channel_read_aloud"

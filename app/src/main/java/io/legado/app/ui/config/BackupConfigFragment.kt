@@ -94,8 +94,15 @@ class BackupConfigFragment : PreferenceFragment(),
     }
     private val restoreDoc = registerForActivityResult(HandleFileContract()) {
         it.uri?.let { uri ->
-            Coroutine.async {
+            waitDialog.setText("恢复中…")
+            waitDialog.show()
+            val task = Coroutine.async {
                 Restore.restore(appCtx, uri)
+            }.onFinally {
+                waitDialog.dismiss()
+            }
+            waitDialog.setOnCancelListener {
+                task.cancel()
             }
         }
     }
@@ -165,7 +172,7 @@ class BackupConfigFragment : PreferenceFragment(),
     }
 
     private fun showHelp() {
-        val text = String(requireContext().assets.open("help/webDavHelp.md").readBytes())
+        val text = String(requireContext().assets.open("web/help/md/webDavHelp.md").readBytes())
         showDialogFragment(TextDialog(getString(R.string.help), text, TextDialog.Mode.MD))
     }
 
@@ -267,7 +274,7 @@ class BackupConfigFragment : PreferenceFragment(),
             if (backupPath.isContentScheme()) {
                 val uri = Uri.parse(backupPath)
                 val doc = DocumentFile.fromTreeUri(requireContext(), uri)
-                if (doc?.canWrite() == true) {
+                if (doc?.checkWrite() == true) {
                     waitDialog.setText("备份中…")
                     waitDialog.setOnCancelListener {
                         backupJob?.cancel()
@@ -317,7 +324,7 @@ class BackupConfigFragment : PreferenceFragment(),
                 }.onError {
                     AppLog.put("备份出错\n${it.localizedMessage}", it)
                     appCtx.toastOnUi(appCtx.getString(R.string.backup_fail, it.localizedMessage))
-                }.onFinally(Main) {
+                }.onFinally {
                     waitDialog.dismiss()
                 }
             }
@@ -335,6 +342,9 @@ class BackupConfigFragment : PreferenceFragment(),
             showRestoreDialog(requireContext())
         }.onError {
             AppLog.put("恢复备份出错WebDavError\n${it.localizedMessage}", it)
+            if (context == null) {
+                return@onError
+            }
             alert {
                 setTitle(R.string.restore)
                 setMessage("WebDavError\n${it.localizedMessage}\n将从本地备份恢复。")
@@ -343,7 +353,7 @@ class BackupConfigFragment : PreferenceFragment(),
                 }
                 cancelButton()
             }
-        }.onFinally(Main) {
+        }.onFinally {
             waitDialog.dismiss()
         }
     }
@@ -380,7 +390,7 @@ class BackupConfigFragment : PreferenceFragment(),
         }.onError {
             AppLog.put("WebDav恢复出错\n${it.localizedMessage}", it)
             appCtx.toastOnUi("WebDav恢复出错\n${it.localizedMessage}")
-        }.onFinally(Main) {
+        }.onFinally {
             waitDialog.dismiss()
         }
         waitDialog.setOnCancelListener {

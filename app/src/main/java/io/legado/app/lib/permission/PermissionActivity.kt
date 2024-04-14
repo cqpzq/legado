@@ -43,7 +43,10 @@ class PermissionActivity : AppCompatActivity() {
                 try {
                     if (Permissions.isManageExternalStorage()) {
                         val settingIntent =
-                            Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                            Intent(
+                                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                Uri.parse("package:$packageName")
+                            )
                         settingActivityResult.launch(settingIntent)
                     } else {
                         throw NoStackTraceException("no MANAGE_ALL_FILES_ACCESS_PERMISSION")
@@ -103,11 +106,13 @@ class PermissionActivity : AppCompatActivity() {
 
     override fun startActivity(intent: Intent) {
         super.startActivity(intent)
+        @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
     }
 
     override fun finish() {
         super.finish()
+        @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
     }
 
